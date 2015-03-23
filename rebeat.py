@@ -34,6 +34,7 @@ class ReBeatApp(tk.Tk):
         self.audio = audioselector.AudioSelector(self, frames, fps,
                                                  highlightthickness=0)
         self.audio.grid(column=0, row=0, columnspan=2)
+        self.audio.on_create_selection(self.selection_created)
 
         self.slider = tk.Scale(self, from_=0, to=len(frames),
                                orient=tk.HORIZONTAL,
@@ -55,6 +56,10 @@ class ReBeatApp(tk.Tk):
         import bisect
         bisect.insort(self.marks, time)
         print self.marks
+
+    def selection_created(self, start, end):
+        print "selection", start, end
+        print "all", self.audio.get_selections()
 
     def play(self):
         stream = self.p.open(format=self.p.get_format_from_width(2),

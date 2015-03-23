@@ -59,6 +59,10 @@ class AudioSelector(tk.Frame):
         self._marks = []
         self._cb_mark = []
 
+    #
+    # Public interface
+    #
+
     def on_create_mark(self, callback):
         """Register callback for mark creation events."""
 
@@ -97,6 +101,10 @@ class AudioSelector(tk.Frame):
 
         return [(start, end) for start, end, _ in self._selections]
 
+    #
+    # User input handling
+    #
+
     def _onkey(self, event):
         move = {'right': 0.001,
                 'up': 0.01,
@@ -104,8 +112,8 @@ class AudioSelector(tk.Frame):
                 'down': -0.01}
         act = {'ctrl+ ': self._create_mark,
                'enter': self._create_mark,
-               ' ': self._toggle_selection,
-               'escape': self._cancel_selection}
+               ' ': self._selection_toggle,
+               'escape': self._selection_cancel}
 
         if event.key in move:
             self._set_cursor(self._get_cursor() + move[event.key])
@@ -117,59 +125,91 @@ class AudioSelector(tk.Frame):
     def _onclick(self, event):
         self._set_cursor(event.xdata)
 
-    def _get_cursor(self):
-        return self.cursor.get_xdata()[0]
+    #
+    # Selection
+    #
 
-    def _toggle_selection(self):
+    def _selection_toggle(self):
         if not self._current_selection:
-            x = self._get_cursor()
-            polygon = self.bot.axvspan(x, x, lw=0, alpha=0.3)
-            self._current_selection = (x, x, polygon)
-            return
+            self._selection_start()
+        else:
+            self._selection_stop()
 
+    def _selection_start(self):
+        x = self._get_cursor()
+        polygon = self.bot.axvspan(x, x, lw=0, alpha=0.3)
+        self._current_selection = (x, x, polygon)
+
+    def _selection_update(self, x):
+        start, end, polygon = self._current_selection
+        polygon.set_xy([[start, 0.0], [start, 1.0], [x, 1.0], [x, 0.0]])
+        self._current_selection = (start, x, polygon)
+
+    def _selection_cancel(self):
+        _,__, polygon = self._current_selection
+        polygon.remove()
+        self.figure.canvas.draw()
+        self._current_selection = None
+
+    def _selection_stop(self):
+        # figure out correct range of selection
         start, end, polygon = self._current_selection
         self._current_selection = None
         start, end = min(start, end), max(start, end)
 
+        # compare against existing selections
         new = True
         remove = set()
         for i in range(len(self._selections)):
             s, e, p = self._selections[i]
-            if s <= start <= e and s <= end <= e:
+
+            # ignore if contained in other
+            if s <= start and end <= e:
                 new = False
                 break
-            if s <= start <= e:
-                remove.add(i)
-                start = s
-            if s <= end <= e:
-                remove.add(i)
-                end = e
 
+            # kill other if other's contained
+            if start <= s and e <= end:
+                remove.add(i)
+
+            # extend and kill other if overlap
+            elif s <= start <= e:
+                start = s
+                remove.add(i)
+            elif s <= end <= e:
+                end = e
+                remove.add(i)
+
+        # out with the old and in with the new
         for i in sorted(remove, reverse=True):
             self.delete_selection(i)
-
         if new:
             polygon.set_xy([[start, 0.0], [start, 1.0], [end, 1.0], [end, 0.0]])
             self._selections.append((start, end, polygon))
+            for cb in self._cb_selection:
+                cb(start, end)
+        else:
+            polygon.remove()
+
         self.figure.canvas.draw()
 
-    def _cancel_selection(self):
-        if self._current_selection:
-            _,__, polygon = self._current_selection
-            self._current_selection = None
-            polygon.remove()
-            self.figure.canvas.draw()
+    #
+    # Cursor movement
+    #
+
+    def _get_cursor(self):
+        return self.cursor.get_xdata()[0]
 
     def _set_cursor(self, x):
         x = max(0, min(x, self.bot.get_xbound()[1]))
         self.cursor.set_xdata([x, x])
-
         if self._current_selection:
-            start, end, polygon = self._current_selection
-            polygon.set_xy([[start, 0.0], [start, 1.0], [x, 1.0], [x, 0.0]])
-            self._current_selection = (start, x, polygon)
-
+            self._selection_update(x)
         self.figure.canvas.draw()
+
+    #
+    # Marks
+    #
 
     def _create_mark(self):
         x = self._get_cursor()
