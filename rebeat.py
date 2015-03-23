@@ -36,11 +36,6 @@ class ReBeatApp(tk.Tk):
         self.audio.grid(column=0, row=0, columnspan=2)
         self.audio.on_create_selection(self.selection_created)
 
-        self.slider = tk.Scale(self, from_=0, to=len(frames),
-                               orient=tk.HORIZONTAL,
-                               borderwidth=0)
-        self.slider.grid(row=1, column=0, columnspan=2, sticky=tk.EW)
-
         self.button = tk.Button(self, text="close", command=self.quit)
         self.button.grid(row=2, column=0)
 
