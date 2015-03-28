@@ -103,3 +103,7 @@ class Player:
     def get_length(self):
         """Returns length of sample in seconds."""
         return len(self.frames)/self.fps
+
+    def get_fps(self):
+        """Returns frames per second."""
+        return self.fps
