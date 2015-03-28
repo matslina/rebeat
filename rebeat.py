@@ -34,6 +34,8 @@ class ReBeatApp(tk.Tk):
         # Step sequencer style grid
         self.beats = beatgrid.BeatGrid(self)
         self.beats.grid(row=1, columnspan=2, sticky="EW")
+        self.beats.on_play(self.audiomark_play)
+        self.beats.on_kill(self.audiomark_kill)
         self.beats.add_row()
 
         # Selection of resolution and number of bars
@@ -49,6 +51,12 @@ class ReBeatApp(tk.Tk):
     def selection_created(self, start, end):
         print "selection", start, end
         print "all", self.audio.get_selections()
+
+    def audiomark_kill(self, i):
+        print "kill partition", i
+
+    def audiomark_play(self, i):
+        print "play partition", i
 
 if __name__ == "__main__":
     app = ReBeatApp()
