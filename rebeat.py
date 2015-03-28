@@ -42,7 +42,11 @@ class ReBeatApp(tk.Tk):
 
         self.beats = beatgrid.BeatGrid(self)
         self.beats.grid(row=1, columnspan=2, sticky="EW")
-        self.beats.fill()
+
+        def dummycallback(row, col, active):
+            for r in self.beats.get_state():
+                print '\t', ''.join('X' if x else '-' for x in r)
+        self.beats.on_click(dummycallback)
 
         self.bars = tk.Spinbox(self, from_=1, to=16)
         self.bars.grid(row=2, column=0)
