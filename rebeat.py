@@ -21,7 +21,6 @@ class ReBeatApp(tk.Tk):
         self.player = player.Player(sys.argv[1])
 
         # UI components from top to bottom
-
         # Audio visualization and selection
         self.audio = audioselector.AudioSelector(self,
                                                  self.player.get_signal(),
@@ -29,7 +28,7 @@ class ReBeatApp(tk.Tk):
                                                  highlightthickness=0)
         self.audio.grid(column=0, row=0, columnspan=2)
         self.audio.on_create_selection(self.selection_created)
-        self.audio.on_create_mark(self.mark_created)
+        self.audio.on_create_mark(self.audiomark_created)
         self.audio.focus_set()
 
         # Step sequencer style grid
@@ -37,19 +36,15 @@ class ReBeatApp(tk.Tk):
         self.beats.grid(row=1, columnspan=2, sticky="EW")
         self.beats.add_row()
 
-        def dummycallback(row, col, active):
-            for r in self.beats.get_state():
-                print '\t', ''.join('X' if x else '-' for x in r)
-        self.beats.on_click(dummycallback)
-
         # Selection of resolution and number of bars
         self.bars = tk.Spinbox(self, from_=1, to=16)
         self.bars.grid(row=2, column=0)
         self.resolution = tk.Spinbox(self, values=(1,2,4,8,16))
         self.bars.grid(row=2, column=1)
 
-    def mark_created(self, i, time):
-        self.beats.add_row()
+    def audiomark_created(self, i, start):
+        print start
+        self.beats.add_row(i)
 
     def selection_created(self, start, end):
         print "selection", start, end

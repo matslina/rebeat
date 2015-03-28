@@ -223,6 +223,8 @@ class AudioSelector(tk.Frame):
         i = bisect.bisect(self._marks, (x, line))
         self._marks.insert(i, (x, line))
 
+        print len(self._marks), i
+
         # call back
         marks = [x for x, line in self._marks]
         for cb in self._cb_mark:
