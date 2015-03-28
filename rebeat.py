@@ -13,6 +13,8 @@ import wave
 import struct
 
 import audioselector
+import beatgrid
+
 
 import sys
 if len(sys.argv) < 2:
@@ -28,19 +30,31 @@ fps = w.getframerate()*2
 
 class ReBeatApp(tk.Tk):
     def __init__(self):
-        tk.Tk.__init__(self, None)
+        tk.Tk.__init__(self, None,)
+        self.configure(background='white')
         self.grid()
 
         self.audio = audioselector.AudioSelector(self, frames, fps,
                                                  highlightthickness=0)
         self.audio.grid(column=0, row=0, columnspan=2)
         self.audio.on_create_selection(self.selection_created)
+        self.audio.focus_set()
+
+        self.beats = beatgrid.BeatGrid(self)
+        self.beats.grid(row=1, columnspan=2, sticky="EW")
+        self.beats.fill()
+
+        self.bars = tk.Spinbox(self, from_=1, to=16)
+        self.bars.grid(row=2, column=0)
+        self.resolution = tk.Spinbox(self, from_=1, to=16)
+        self.bars.grid(row=2, column=1)
+        # 1/16 1/8 etc
 
         self.button = tk.Button(self, text="close", command=self.quit)
-        self.button.grid(row=2, column=0)
+        self.button.grid(row=3, column=0)
 
         self.button = tk.Button(self, text="play", command=self.play)
-        self.button.grid(row=2, column=1)
+        self.button.grid(row=3, column=1)
 
         self.marks = []
 

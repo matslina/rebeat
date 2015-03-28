@@ -23,7 +23,7 @@ class AudioSelector(tk.Frame):
         self.grid()
 
         # embed matplotlib gizmos
-        figure = Figure((10,2), dpi=100, tight_layout=True)
+        figure = Figure((10,2), dpi=100, tight_layout=True, facecolor='white')
         canvas = FigureCanvasTkAgg(figure, self)
         canvas.show()
         canvas.get_tk_widget().config(borderwidth=0)
