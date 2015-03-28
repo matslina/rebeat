@@ -227,4 +227,3 @@ class AudioSelector(tk.Frame):
         marks = [x for x, line in self._marks]
         for cb in self._cb_mark:
             cb(i, marks)
-

@@ -38,10 +38,12 @@ class ReBeatApp(tk.Tk):
                                                  highlightthickness=0)
         self.audio.grid(column=0, row=0, columnspan=2)
         self.audio.on_create_selection(self.selection_created)
+        self.audio.on_create_mark(self.mark_created)
         self.audio.focus_set()
 
         self.beats = beatgrid.BeatGrid(self)
         self.beats.grid(row=1, columnspan=2, sticky="EW")
+        self.beats.add_row()
 
         def dummycallback(row, col, active):
             for r in self.beats.get_state():
@@ -65,10 +67,8 @@ class ReBeatApp(tk.Tk):
         import pyaudio
         self.p = pyaudio.PyAudio()
 
-    def partition_created(self, time):
-        import bisect
-        bisect.insort(self.marks, time)
-        print self.marks
+    def mark_created(self, i, time):
+        self.beats.add_row()
 
     def selection_created(self, start, end):
         print "selection", start, end

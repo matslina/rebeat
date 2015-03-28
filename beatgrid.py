@@ -30,11 +30,6 @@ class BeatGrid(tk.Frame):
 
         self._cb_click = None
 
-        self.add_row()
-        self.add_row()
-        self.add_row()
-        self.add_row()
-
     def on_click(self, callback):
         self._cb_click = callback
 
