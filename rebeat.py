@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import atexit
 import Tkinter as tk
 import audioselector
 import beatgrid
@@ -19,6 +20,7 @@ class ReBeatApp(tk.Tk):
         self.grid()
 
         self.player = player.Player(sys.argv[1])
+        atexit.register(self.player.close)
 
         # UI components from top to bottom
         # Audio visualization and selection
@@ -43,6 +45,12 @@ class ReBeatApp(tk.Tk):
         self.bars.grid(row=2, column=0)
         self.resolution = tk.Spinbox(self, values=(1,2,4,8,16))
         self.bars.grid(row=2, column=1)
+
+        self.protocol("WM_DELETE_WINDOW", self._on_delete_window)
+
+    def _on_delete_window(self):
+        self.player.close()
+        self.quit()
 
     def audiomark_created(self, i, start):
         print start
