@@ -49,6 +49,7 @@ class Player:
                     active = True
                     pos = cmd[1]
                     end = cmd[2]
+                    stream.start_stream()
                 elif cmd[0] == 'abort':
                     active = False
                 elif cmd[0] == 'stop':
@@ -60,8 +61,10 @@ class Player:
                 pos = block_end
                 if pos >= end:
                     active = False
+                    stream.write('\x00' * stream.get_write_available())
+                    stream.stop_stream()
 
-        stream.stop()
+        stream.stop_stream()
         stream.close()
 
     def play(self, start, stop, duration=None, stretch=[]):
