@@ -10,6 +10,83 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
 
+class SelectionController:
+
+    def __init__(self, range_min, range_max):
+        self._min = range_min
+        self._max = range_max
+
+        self._selections = []
+        self._partitions = []
+        self._cb_partition_created = None
+        self._cb_selection_created = None
+
+    def on_partition_created(self, callback):
+        self._cb_partition_created = callback
+
+    def on_selection_created(self, callback):
+        self._cb_selection_created = callback
+
+    def get_selections(self):
+        return self._selections
+
+    def get_partitions(self):
+        return self._partitions
+
+    def remove_selection(self, i):
+        self._selection.pop(i)
+
+    def remove_partition(self, i):
+        self._partitions.pop(i)
+
+    def create_partition(self, where):
+        if where < self._min or where > self._max:
+            raise ValueError("partition point out of range")
+
+        i = bisect.bisect(self._partitions, where)
+        self._partitions.insert(i, where)
+
+        if self._cb_partition_created:
+            self._cb_partition_created(i)
+
+        return i
+
+    def create_selection(self, from_, to):
+        from_ = min(from_, to)
+        to = max(from_, to)
+
+        if from_ < self._min or to > self._max:
+            raise ValueError("selection out of range")
+
+        remove = []
+
+        for i, (s, e) in enumerate(self._selections):
+            # new selection completely contained
+            if s <= from_ and to <= e:
+                return
+
+            # old selection completely contained
+            if from_ <= s and e <= to:
+                remove.append(i)
+
+            # new selection overlaps
+            elif s <= from_ <= e or s <= to <= e:
+                from_, to = min(from_, s), max(to, e)
+                remove.append(i)
+
+        for i in sorted(remove, reverse=True):
+            self._selections.pop(i)
+
+        # insert so that list remains ordered
+        pos = bisect.bisect(self._partitions, (from_, to))
+        self._selections.insert(pos, (from_, to))
+
+        if self._cb_selection_created:
+            self._cb_selection_created(i)
+
+        return pos
+
+
 class AudioSelector(tk.Frame):
     """Visualizes audio signal with selection.
 
@@ -17,9 +94,10 @@ class AudioSelector(tk.Frame):
     and selections.
     """
 
-    def __init__(self, parent, signal, fps, **kwargs):
+    def __init__(self, parent, signal, fps, controller, **kwargs):
         tk.Frame.__init__(self, parent, **kwargs)
 
+        self._selections = controller
         self.grid()
 
         # embed matplotlib gizmos
@@ -54,56 +132,8 @@ class AudioSelector(tk.Frame):
         self.figure = figure
 
         self._current_selection = None
-        self._selections = []
-        self._cb_selection = []
-        self._marks = []
-        self._cb_mark = []
-
-    #
-    # Public interface
-    #
-
-    def on_create_mark(self, callback):
-        """Register callback for mark creation events."""
-
-        self._cb_mark.append(callback)
-
-    def on_create_selection(self, callback):
-        """Register callback for selection creation events."""
-
-        self._cb_selection.append(callback)
-
-    def delete_mark(self, i):
-        """Removes the i:th mark."""
-
-        if i < 0 or i >= len(self._marks):
-            raise IndexError("index out of range")
-        x, line = self._marks.pop(i)
-        line.remove()
-        self.figure.canvas.draw()
-
-    def delete_selection(self, i):
-        """Removes the i:th selection."""
-
-        if i < 0 or i >= len(self._selections):
-            raise IndexError("index out of range")
-        start, end, polygon = self._selections.pop(i)
-        polygon.remove()
-        self.figure.canvas.draw()
-
-    def get_marks(self):
-        """Retrieves all marks."""
-
-        return [x for x,_ in self._marks]
-
-    def get_selections(self):
-        """Retrieves all selections."""
-
-        return [(start, end) for start, end, _ in self._selections]
-
-    #
-    # User input handling
-    #
+        self._polygons = []
+        self._lines = []
 
     def _onkey(self, event):
         move = {'right': 0.001,
@@ -124,10 +154,6 @@ class AudioSelector(tk.Frame):
 
     def _onclick(self, event):
         self._set_cursor(event.xdata)
-
-    #
-    # Selection
-    #
 
     def _selection_toggle(self):
         if not self._current_selection:
@@ -152,50 +178,34 @@ class AudioSelector(tk.Frame):
         self._current_selection = None
 
     def _selection_stop(self):
-        # figure out correct range of selection
         start, end, polygon = self._current_selection
+        self._selections.create_selection(start, end)
+        self._polygons.append(polygon)
         self._current_selection = None
-        start, end = min(start, end), max(start, end)
+        self._redraw()
 
-        # compare against existing selections
-        new = True
-        remove = set()
-        for i in range(len(self._selections)):
-            s, e, p = self._selections[i]
+    def _redraw(self):
+        sels = self._selections.get_selections()
+        parts = self._selections.get_partitions()
 
-            # ignore if contained in other
-            if s <= start and end <= e:
-                new = False
-                break
+        # hide dead matplotlib "patches"
+        for patch in self._polygons[len(sels):] + self._lines[len(parts):]:
+            patch.visible(False)
 
-            # kill other if other's contained
-            if start <= s and e <= end:
-                remove.add(i)
+        # create as many new ones as needed
+        self._polygons += [self.bot.axvspan([0, 0], [0, 0], lw=0, alpha=0.3)
+                           for _ in range(len(sels) - len(self._polygons))]
+        self._lines += [self.bot.axvline(0, c='blue', alpha=0.7)
+                        for _ in range(len(parts) - len(self._lines))]
 
-            # extend and kill other if overlap
-            elif s <= start <= e:
-                start = s
-                remove.add(i)
-            elif s <= end <= e:
-                end = e
-                remove.add(i)
-
-        # out with the old and in with the new
-        for i in sorted(remove, reverse=True):
-            self.delete_selection(i)
-        if new:
-            polygon.set_xy([[start, 0.0], [start, 1.0], [end, 1.0], [end, 0.0]])
-            self._selections.append((start, end, polygon))
-            for cb in self._cb_selection:
-                cb(start, end)
-        else:
-            polygon.remove()
+        # place them where they should be at
+        for poly, sel in zip(self._polygons, sels):
+            poly.set_xy([sel[0], 0.0], [sel[0], 1.0],
+                        [sel[1], 1.0], [sel[1], 0.0])
+        for line, part in zip(self._lines, parts):
+            line.set_xdata([part, part])
 
         self.figure.canvas.draw()
-
-    #
-    # Cursor movement
-    #
 
     def _get_cursor(self):
         return self.cursor.get_xdata()[0]
@@ -207,25 +217,6 @@ class AudioSelector(tk.Frame):
             self._selection_update(x)
         self.figure.canvas.draw()
 
-    #
-    # Marks
-    #
-
     def _create_mark(self):
-        x = self._get_cursor()
-
-        # draw mark on rad signal
-        line = self.bot.axvline(x, c='blue', alpha=0.7)
-        self.figure.canvas.draw()
-
-        # record
-        bisect.bisect(self._marks, (x, line))
-        i = bisect.bisect(self._marks, (x, line))
-        self._marks.insert(i, (x, line))
-
-        print len(self._marks), i
-
-        # call back
-        marks = [x for x, line in self._marks]
-        for cb in self._cb_mark:
-            cb(i, marks)
+        self._selections.create_partition(self._get_cursor())
+        self._redraw()

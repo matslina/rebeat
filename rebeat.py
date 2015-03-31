@@ -21,16 +21,19 @@ class ReBeatApp(tk.Tk):
 
         self.player = player.Player(sys.argv[1])
         atexit.register(self.player.close)
+        length = self.player.get_length()
+        self.selections = audioselector.SelectionController(0, length)
+        self.selections.on_selection_created(self.selection_created)
+        self.selections.on_partition_created(self.audiomark_created)
 
         # UI components from top to bottom
         # Audio visualization and selection
         self.audio = audioselector.AudioSelector(self,
                                                  self.player.get_signal(),
                                                  self.player.get_fps(),
+                                                 self.selections,
                                                  highlightthickness=0)
         self.audio.grid(column=0, row=0, columnspan=2)
-        self.audio.on_create_selection(self.selection_created)
-        self.audio.on_create_mark(self.audiomark_created)
         self.audio.focus_set()
 
         # Step sequencer style grid
@@ -52,21 +55,19 @@ class ReBeatApp(tk.Tk):
         self.player.close()
         self.quit()
 
-    def audiomark_created(self, i, start):
-        print start
+    def audiomark_created(self, i):
         self.beats.add_row(i)
 
-    def selection_created(self, start, end):
-        print "selection", start, end
-        print "all", self.audio.get_selections()
+    def selection_created(self, i):
+        print "selection", self.selections.get_selections()[i]
+        print "all", self.selections.get_selections()
 
     def audiomark_kill(self, i):
         print "kill partition", i
 
     def audiomark_play(self, i):
         # hack. should s/mark/partition/ and get them as ranges
-        x = self.audio.get_marks()
-        x.insert(0, 0.0)
+        x = [0] + self.selections.get_partitions() + [self.player.get_length()]
         self.player.play(x[i], x[i+1])
 
 if __name__ == "__main__":
