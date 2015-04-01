@@ -34,7 +34,7 @@ class SelectionController:
         return self._partitions
 
     def remove_selection(self, i):
-        self._selection.pop(i)
+        self._selections.pop(i)
 
     def remove_partition(self, i):
         self._partitions.pop(i)
@@ -52,8 +52,7 @@ class SelectionController:
         return i
 
     def create_selection(self, from_, to):
-        from_ = min(from_, to)
-        to = max(from_, to)
+        from_, to = min(from_, to), max(from_, to)
 
         if from_ < self._min or to > self._max:
             raise ValueError("selection out of range")
@@ -63,7 +62,7 @@ class SelectionController:
         for i, (s, e) in enumerate(self._selections):
             # new selection completely contained
             if s <= from_ and to <= e:
-                return
+                return i
 
             # old selection completely contained
             if from_ <= s and e <= to:
@@ -78,7 +77,7 @@ class SelectionController:
             self._selections.pop(i)
 
         # insert so that list remains ordered
-        pos = bisect.bisect(self._partitions, (from_, to))
+        pos = bisect.bisect(self._selections, (from_, to))
         self._selections.insert(pos, (from_, to))
 
         if self._cb_selection_created:
