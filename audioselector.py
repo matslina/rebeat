@@ -20,12 +20,16 @@ class SelectionController:
         self._partitions = []
         self._cb_partition_created = None
         self._cb_selection_created = None
+        self._cb_partition_removed = None
 
     def on_partition_created(self, callback):
         self._cb_partition_created = callback
 
     def on_selection_created(self, callback):
         self._cb_selection_created = callback
+
+    def on_partition_removed(self, callback):
+        self._cb_partition_removed = callback
 
     def get_selections(self):
         return self._selections
@@ -38,6 +42,8 @@ class SelectionController:
 
     def remove_partition(self, i):
         self._partitions.pop(i)
+        if self._cb_partition_removed is not None:
+            self._cb_partition_removed(i)
 
     def create_partition(self, where):
         if where < self._min or where > self._max:
@@ -81,7 +87,7 @@ class SelectionController:
         self._selections.insert(pos, (from_, to))
 
         if self._cb_selection_created:
-            self._cb_selection_created(i)
+            self._cb_selection_created(pos)
 
         return pos
 
@@ -97,14 +103,15 @@ class AudioSelector(tk.Frame):
         tk.Frame.__init__(self, parent, **kwargs)
 
         self._selections = controller
+        self._selections.on_partition_removed(self._remove_mark)
         self.grid()
 
         # embed matplotlib gizmos
-        figure = Figure((10,2), dpi=100, tight_layout=True, facecolor='white')
+        figure = Figure((10, 2), dpi=100, tight_layout=True, facecolor='white')
         canvas = FigureCanvasTkAgg(figure, self)
         canvas.show()
         canvas.get_tk_widget().config(borderwidth=0)
-        canvas.get_tk_widget().grid(row=0, column=0,  sticky='NSEW')
+        canvas.get_tk_widget().grid(row=0, column=0, sticky='NSEW')
 
         # two plots, no ticks
         top = figure.add_subplot(211)
@@ -115,7 +122,7 @@ class AudioSelector(tk.Frame):
         bot.get_yaxis().set_ticks([])
 
         # plot spectrogram and raw signal
-        timex = [x/float(fps) for x in range(len(signal))]
+        timex = [x / float(fps) for x in range(len(signal))]
         top.specgram(signal, Fs=fps)
         bot.plot(timex, signal, c='black')
 
@@ -171,7 +178,7 @@ class AudioSelector(tk.Frame):
         self._current_selection = (start, x, polygon)
 
     def _selection_cancel(self):
-        _,__, polygon = self._current_selection
+        _, __, polygon = self._current_selection
         polygon.remove()
         self.figure.canvas.draw()
         self._current_selection = None
@@ -187,20 +194,21 @@ class AudioSelector(tk.Frame):
         sels = self._selections.get_selections()
         parts = self._selections.get_partitions()
 
-        # hide dead matplotlib "patches"
-        for patch in self._polygons[len(sels):] + self._lines[len(parts):]:
-            patch.visible(False)
+        # create as many new lines and polygons as needed
+        while len(self._polygons) < len(sels):
+            self._polygons.append(self._bot.axvspan([0, 0], [0, 0],
+                                                    lw=0, alpha=0.3))
+        while len(self._lines) < len(parts):
+            self._lines.append(self.bot.axvline(0, c='blue', alpha=0.7))
 
-        # create as many new ones as needed
-        self._polygons += [self.bot.axvspan([0, 0], [0, 0], lw=0, alpha=0.3)
-                           for _ in range(len(sels) - len(self._polygons))]
-        self._lines += [self.bot.axvline(0, c='blue', alpha=0.7)
-                        for _ in range(len(parts) - len(self._lines))]
+        # kill off redundant polygons
+        while len(self._polygons) > len(sels):
+            self._polygons.pop().remove()
 
-        # place them where they should be at
+        # place them where they belong
         for poly, sel in zip(self._polygons, sels):
-            poly.set_xy([sel[0], 0.0], [sel[0], 1.0],
-                        [sel[1], 1.0], [sel[1], 0.0])
+            poly.set_xy([[sel[0], 0.0], [sel[0], 1.0],
+                         [sel[1], 1.0], [sel[1], 0.0]])
         for line, part in zip(self._lines, parts):
             line.set_xdata([part, part])
 
@@ -218,4 +226,8 @@ class AudioSelector(tk.Frame):
 
     def _create_mark(self):
         self._selections.create_partition(self._get_cursor())
+        self._redraw()
+
+    def _remove_mark(self, i):
+        self._lines.pop(i).remove()
         self._redraw()

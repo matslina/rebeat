@@ -63,7 +63,7 @@ class ReBeatApp(tk.Tk):
         print "all", self.selections.get_selections()
 
     def audiomark_kill(self, i):
-        print "kill partition", i
+        self.selections.remove_partition(i - 1)
 
     def audiomark_play(self, i):
         # hack. should s/mark/partition/ and get them as ranges
